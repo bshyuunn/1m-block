@@ -1,6 +1,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <string>
 #include <unistd.h>
 #include <netinet/in.h>
 #include <netinet/ip.h>
@@ -68,7 +69,21 @@ static bool is_blocked(struct nfq_data *nfa) {
 	int hdr_len = ip_hlen + tcp_hlen;
 	if (len <= hdr_len) return false;
 
-	// HTTP payload 에서 Host 추출 + blocklist 검색
+	// 3. HTTP 페이로드 추출
+	unsigned char *http = data + hdr_len;
+	int http_len = len - hdr_len;
+
+	// 4. Host 헤더 추출
+	const char *host_start = (const char *)memmem(http, http_len, "\r\nHost: ", 8);
+	if (host_start == nullptr) return false;
+	host_start += 8;
+	int rest = http_len - (host_start - (const char *)http);
+	const char *host_end = (const char *)memmem(host_start, rest, "\r\n", 2);
+	if (host_end == nullptr) return false;
+
+	std::string host(host_start, host_end - host_start);
+	printf("host: %s\n", host.c_str());
+
 	return false;
 }
 
