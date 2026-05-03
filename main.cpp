@@ -12,12 +12,12 @@
 #include <libnetfilter_queue/libnetfilter_queue.h>
 
 void usage() {
-	printf("syntax : netfilter-test <host>\n");
-	printf("sample : netfilter-test test.gilgil.net\n");
+	printf("syntax : 1m-block <site list file>\n");
+	printf("sample : 1m-block top-1m.csv\n");
 }
 
 struct Param {
-	const char *host_;
+	const char *path_;
 };
 
 Param param;
@@ -27,7 +27,7 @@ bool parse(Param *param, int argc, char *argv[]) {
 		usage();
 		return false;
 	}
-	param->host_ = argv[1];
+	param->path_ = argv[1];
 	return true;
 }
 
@@ -68,15 +68,8 @@ static bool is_blocked(struct nfq_data *nfa) {
 	int hdr_len = ip_hlen + tcp_hlen;
 	if (len <= hdr_len) return false;
 
-	// 3. HTTP 페이로드 추출
-	unsigned char *http = data + hdr_len;
-	int http_len = len - hdr_len;
-	dump(http, http_len);
-
-	// 4. Host 헤더가 검증
-	char needle[1000];
-	int needle_len = snprintf(needle, sizeof(needle), "\r\nHost: %s\r", param.host_);
-	return memmem(http, http_len, needle, needle_len) != nullptr;
+	// HTTP payload 에서 Host 추출 + blocklist 검색
+	return false;
 }
 
 // 패킷 도착할 때마다 호출되는 콜백 함수
@@ -85,7 +78,6 @@ static int cb(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg,
 	uint32_t id = get_pkt_id(nfa);
 
 	if (is_blocked(nfa)) {
-		printf("blocked: %s\n", param.host_);
 		return nfq_set_verdict(qh, id, NF_DROP, 0, nullptr);
 	}
 	return nfq_set_verdict(qh, id, NF_ACCEPT, 0, nullptr);
@@ -95,7 +87,7 @@ int main(int argc, char *argv[]) {
 	if (!parse(&param, argc, argv))
 		exit(1);
 
-	printf("blocking host: %s\n", param.host_);
+	printf("list file: %s\n", param.path_);
 
 	struct nfq_handle *h;
 	struct nfq_q_handle *qh;

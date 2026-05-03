@@ -1,12 +1,12 @@
 LDLIBS=-lnetfilter_queue
 
-all: netfilter-test
+all: 1m-block
 
 
 main.o: main.cpp
 
-netfilter-test: main.o
+1m-block: main.o
 	$(LINK.cc) $^ $(LOADLIBES) $(LDLIBS) -o $@
 
 clean:
-	rm -f netfilter-test *.o
+	rm -f 1m-block *.o
