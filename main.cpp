@@ -2,6 +2,8 @@
 #include <cstdlib>
 #include <cstring>
 #include <string>
+#include <unordered_set>
+#include <chrono>
 #include <unistd.h>
 #include <netinet/in.h>
 #include <netinet/ip.h>
@@ -22,6 +24,38 @@ struct Param {
 };
 
 Param param;
+std::unordered_set<std::string> blocklist;
+
+void load_blocklist(const char *path) {
+	auto t0 = std::chrono::steady_clock::now();
+
+	FILE *fp = fopen(path, "r");
+	if (!fp) {
+		fprintf(stderr, "fopen failed: %s\n", path);
+		exit(1);
+	}
+
+	char *line = nullptr;
+	size_t cap = 0;
+	ssize_t n;
+	while ((n = getline(&line, &cap, fp)) != -1) {
+		// "rank,domain\n" 에서 콤마 뒤만 취함
+		char *comma = strchr(line, ',');
+		if (comma == nullptr) continue;
+		char *domain = comma + 1;
+		size_t domain_len = n - (domain - line);
+		while (domain_len > 0 && (domain[domain_len-1] == '\n' || domain[domain_len-1] == '\r'))
+			domain_len--;
+		if (domain_len == 0) continue;
+		blocklist.emplace(domain, domain_len);
+	}
+	free(line);
+	fclose(fp);
+
+	auto t1 = std::chrono::steady_clock::now();
+	auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(t1 - t0).count();
+	printf("loaded %zu hosts in %ld ms\n", blocklist.size(), ms);
+}
 
 bool parse(Param *param, int argc, char *argv[]) {
 	if (argc != 2) {
@@ -103,6 +137,7 @@ int main(int argc, char *argv[]) {
 		exit(1);
 
 	printf("list file: %s\n", param.path_);
+	load_blocklist(param.path_);
 
 	struct nfq_handle *h;
 	struct nfq_q_handle *qh;
