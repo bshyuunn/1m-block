@@ -116,8 +116,17 @@ static bool is_blocked(struct nfq_data *nfa) {
 	if (host_end == nullptr) return false;
 
 	std::string host(host_start, host_end - host_start);
-	printf("host: %s\n", host.c_str());
 
+	// 5. blocklist 검색 + 검색 시간 측정
+	auto t0 = std::chrono::steady_clock::now();
+	bool found = blocklist.count(host) > 0;
+	auto t1 = std::chrono::steady_clock::now();
+	auto ns = std::chrono::duration_cast<std::chrono::nanoseconds>(t1 - t0).count();
+
+	if (found) {
+		printf("blocked: %s (search: %ld ns)\n", host.c_str(), ns);
+		return true;
+	}
 	return false;
 }
 
